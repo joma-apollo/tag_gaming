@@ -1,0 +1,52 @@
+name: Auto Tag and Release
+
+on:
+  push:
+    branches:
+      - dev
+      - test  # Trigger on push to test branch
+
+jobs:
+  tag_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get all tags
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_ENV
+
+      - name: Increment version
+        id: versioning
+        run: |
+          TAG=${{ env.latest_tag }}
+          MAJOR=$(echo $TAG | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo $TAG | cut -d. -f2)
+          PATCH=$(echo $TAG | cut -d. -f3)
+
+          # Increment minor version (pushing to test)
+          NEW_VERSION="v$MAJOR.$((MINOR + 1)).0"
+
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Create new tag
+        run: |
+          git tag ${{ env.new_version }}
+          git push origin ${{ env.new_version }}
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ env.new_version }}
+          name: "Release ${{ env.new_version }}"
+          body: "Automated release for ${{ env.new_version }}"
+          draft: false
+          prerelease: false
