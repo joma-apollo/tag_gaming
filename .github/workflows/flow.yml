@@ -1,0 +1,63 @@
+name: Auto Tag and Release
+
+on:
+  push:
+    branches:
+      - dev   # Patch version increase (v0.0.X)
+      - test  # Minor version increase (v0.X.0)
+
+permissions:
+  contents: write  # Allow GitHub Actions to push tags
+
+jobs:
+  tag_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get all tags
+
+      - name: Get latest valid tag
+        id: get_tag
+        run: |
+          # Get the latest tag that matches vX.Y.Z format, or default to v0.0.0
+          LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          if [[ -z "$LATEST_TAG" ]]; then
+            LATEST_TAG="v0.0.0"
+          fi
+          echo "Latest valid tag: $LATEST_TAG"
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_ENV
+
+      - name: Determine new version
+        id: versioning
+        run: |
+          TAG=${{ env.latest_tag }}
+          MAJOR=$(echo $TAG | cut -d. -f1 | tr -d 'v')  # Extract major version (0)
+          MINOR=$(echo $TAG | cut -d. -f2)  # Extract minor version
+          PATCH=$(echo $TAG | cut -d. -f3)  # Extract patch version
+
+          # Increment version based on the branch
+          if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            NEW_VERSION="v$MAJOR.$MINOR.$((PATCH + 1))"
+          elif [[ "${{ github.ref }}" == "refs/heads/test" ]]; then
+            NEW_VERSION="v$MAJOR.$((MINOR + 1)).0"
+          fi
+
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Create and push new tag
+        run: |
+          git tag ${{ env.new_version }}
+          git push origin ${{ env.new_version }}
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ env.new_version }}
+          name: "Release ${{ env.new_version }}"
+          body: "Automated release for ${{ env.new_version }}"
+          draft: false
+          prerelease: false
