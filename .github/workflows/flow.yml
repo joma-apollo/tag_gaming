@@ -6,6 +6,9 @@ on:
       - dev
       - test  # Trigger on push to test branch
 
+permissions:
+  contents: write
+
 jobs:
   tag_release:
     runs-on: ubuntu-latest
