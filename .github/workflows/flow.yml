@@ -22,8 +22,11 @@ jobs:
       - name: Get latest valid tag
         id: get_tag
         run: |
-          # Get the latest tag that matches vX.Y.Z pattern
-          LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || echo "v0.0.0")
+          # Get the latest tag that matches vX.Y.Z format, or default to v0.0.0
+          LATEST_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          if [[ -z "$LATEST_TAG" ]]; then
+            LATEST_TAG="v0.0.0"
+          fi
           echo "Latest valid tag: $LATEST_TAG"
           echo "latest_tag=$LATEST_TAG" >> $GITHUB_ENV
 
